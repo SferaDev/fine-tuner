@@ -2,13 +2,13 @@ import { ChatCompletionCreateParamsBase } from "openai/resources/chat/completion
 import fs from "fs";
 import OpenAI from "openai";
 
-type TuneOptions = {
+type DeployOptions = {
   apiKey: string;
   cwd: string;
   model?: ChatCompletionCreateParamsBase["model"];
 };
 
-export async function tuneCommand(options: TuneOptions) {
+export async function deployCommand(options: DeployOptions) {
   const files = fs.readdirSync(`${options.cwd}/sessions`);
 
   const sessions = files

@@ -1,7 +1,7 @@
 import { Command } from "commander";
 import fs from "fs";
 import { chatCommand } from "./commands/chat";
-import { tuneCommand } from "./commands/tune";
+import { deployCommand } from "./commands/deploy";
 
 function main() {
   const program = new Command();
@@ -33,7 +33,7 @@ function main() {
     });
 
   program
-    .command("tune")
+    .command("deploy")
     .description("Tune the OpenAI API parameters")
     .option("-c, --cwd <path>", "Working directory")
     .action(async ({ cwd }: { cwd: string }) => {
@@ -42,7 +42,7 @@ function main() {
       // Get absolute path for the working directory
       const absoluteCwd = fs.realpathSync(cwd);
 
-      await tuneCommand({
+      await deployCommand({
         apiKey: process.env.OPENAI_API_TOKEN!,
         cwd: absoluteCwd,
       });
