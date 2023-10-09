@@ -1,37 +1,54 @@
 import { Command } from "commander";
 import fs from "fs";
-import { start } from "./tool";
+import { chatCommand } from "./commands/chat";
+import { tuneCommand } from "./commands/tune";
 
 function main() {
   const program = new Command();
 
-  program.arguments("<path>").action(async (path: string) => {
-    if (!pathIsValid(path)) throw `Invalid path: ${path}`;
+  program
+    .command("chat")
+    .description("Start the chat tool")
+    .option("-c, --cwd <path>", "Working directory")
+    .action(async ({ cwd }: { cwd: string }) => {
+      if (!fs.existsSync(cwd)) throw `Invalid path: ${cwd}`;
 
-    // Create sessions folder if it doesn't exist
-    const sessionsFolder = `${path}/sessions`;
-    if (!fs.existsSync(sessionsFolder)) {
-      fs.mkdirSync(sessionsFolder, { recursive: true });
-    }
+      // Create sessions folder if it doesn't exist
+      const sessionsFolder = `${cwd}/sessions`;
+      if (!fs.existsSync(sessionsFolder)) {
+        fs.mkdirSync(sessionsFolder, { recursive: true });
+      }
 
-    // Get absolute path for the working directory
-    const cwd = fs.realpathSync(path);
+      // Get absolute path for the working directory
+      const absoluteCwd = fs.realpathSync(cwd);
 
-    await start({
-      apiKey: process.env.OPENAI_API_TOKEN!,
-      cwd,
-      onComplete: (messages) => {
-        const content = JSON.stringify(messages, null, 2);
-        fs.writeFileSync(`${sessionsFolder}/${Date.now()}.json`, content);
-      },
+      await chatCommand({
+        apiKey: process.env.OPENAI_API_TOKEN!,
+        cwd: absoluteCwd,
+        onComplete: (messages) => {
+          const content = JSON.stringify(messages, null, 2);
+          fs.writeFileSync(`${sessionsFolder}/${Date.now()}.json`, content);
+        },
+      });
     });
-  });
+
+  program
+    .command("tune")
+    .description("Tune the OpenAI API parameters")
+    .option("-c, --cwd <path>", "Working directory")
+    .action(async ({ cwd }: { cwd: string }) => {
+      if (!fs.existsSync(cwd)) throw `Invalid path: ${cwd}`;
+
+      // Get absolute path for the working directory
+      const absoluteCwd = fs.realpathSync(cwd);
+
+      await tuneCommand({
+        apiKey: process.env.OPENAI_API_TOKEN!,
+        cwd: absoluteCwd,
+      });
+    });
 
   program.parse(process.argv);
-}
-
-function pathIsValid(path: string): boolean {
-  return fs.existsSync(path);
 }
 
 main();

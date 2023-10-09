@@ -42,7 +42,7 @@ async function loadFunctions(cwd: string) {
   return functions;
 }
 
-export async function start(options: StartOptions) {
+export async function chatCommand(options: StartOptions) {
   const openai = new OpenAI({ apiKey: options.apiKey });
   const model = options.model ?? "gpt-3.5-turbo";
   const functions = await loadFunctions(options.cwd);
