@@ -8,11 +8,21 @@ function main() {
   program.arguments("<path>").action(async (path: string) => {
     if (!pathIsValid(path)) throw `Invalid path: ${path}`;
 
+    // Create sessions folder if it doesn't exist
+    const sessionsFolder = `${path}/sessions`;
+    if (!fs.existsSync(sessionsFolder)) {
+      fs.mkdirSync(sessionsFolder, { recursive: true });
+    }
+
+    // Get absolute path for the working directory
+    const cwd = fs.realpathSync(path);
+
     await start({
       apiKey: process.env.OPENAI_API_TOKEN!,
+      cwd,
       onComplete: (messages) => {
         const content = JSON.stringify(messages, null, 2);
-        fs.writeFileSync(`${path}/messages.json`, content);
+        fs.writeFileSync(`${sessionsFolder}/${Date.now()}.json`, content);
       },
     });
   });

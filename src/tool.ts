@@ -3,15 +3,49 @@ import OpenAI from "openai";
 import type { ChatCompletionCreateParamsBase } from "openai/resources/chat/completions.mjs";
 import type { ChatCompletionMessageParam } from "openai/resources/chat/index.mjs";
 import { createInterface } from "readline";
+import fs from "fs";
+import { zodToJsonSchema } from "zod-to-json-schema";
+import z from "zod";
 
 type StartOptions = {
   apiKey: string;
+  cwd: string;
   model?: ChatCompletionCreateParamsBase["model"];
   onComplete: (messages: ChatCompletionMessageParam[]) => void;
 };
 
+type ToolFunction =
+  OpenAI.Chat.Completions.ChatCompletionCreateParams.Function & {
+    handler: (...args: any[]) => any;
+    schema: z.Schema<any>;
+  };
+
+async function loadFunctions(cwd: string) {
+  const files = fs.readdirSync(`${cwd}/functions`);
+  const functionFiles = files.filter((file) => file.endsWith(".ts"));
+  const functions: ToolFunction[] = [];
+
+  for (const file of functionFiles) {
+    const { handler, metadata, schema } = await import(
+      `${cwd}/functions/${file}`
+    );
+
+    functions.push({
+      name: metadata.name,
+      description: metadata.description,
+      parameters: zodToJsonSchema(schema),
+      handler,
+      schema,
+    });
+  }
+
+  return functions;
+}
+
 export async function start(options: StartOptions) {
   const openai = new OpenAI({ apiKey: options.apiKey });
+  const model = options.model ?? "gpt-3.5-turbo";
+  const functions = await loadFunctions(options.cwd);
 
   const readline = createInterface({
     input: process.stdin,
@@ -38,12 +72,36 @@ export async function start(options: StartOptions) {
     messages.push({ role: "user", content });
 
     const response = await openai.chat.completions.create({
-      model: options.model ?? "gpt-3.5-turbo",
+      model,
       stream: true,
       messages,
+      functions,
     });
 
-    const stream = OpenAIStream(response);
+    const stream = OpenAIStream(response, {
+      experimental_onFunctionCall: async (
+        payload,
+        createFunctionCallMessages
+      ) => {
+        console.log("onFunctionCall", payload);
+
+        const { handler, schema } = functions.find(
+          (fn) => fn.name === payload.name
+        )!;
+
+        const args = schema.parse(payload.arguments);
+        const result = await handler(args);
+        const newMessages = createFunctionCallMessages(result);
+
+        return openai.chat.completions.create({
+          // @ts-expect-error - Vercel `ai` typings are wrong
+          messages: [...messages, ...newMessages],
+          stream: true,
+          model,
+          functions,
+        });
+      },
+    });
 
     let message = "";
 
