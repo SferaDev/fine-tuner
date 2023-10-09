@@ -90,11 +90,14 @@ export async function start(options: StartOptions) {
         )!;
 
         const args = schema.parse(payload.arguments);
-        const result = await handler(args);
-        const newMessages = createFunctionCallMessages(result);
+        const array = Array.isArray(args) ? args : [args];
+        const result = await handler(...array);
+
+        // Types don't match up here, so we have to cast
+        const newMessages = createFunctionCallMessages(result) as any;
+        messages.push(...newMessages);
 
         return openai.chat.completions.create({
-          // @ts-expect-error - Vercel `ai` typings are wrong
           messages: [...messages, ...newMessages],
           stream: true,
           model,
@@ -112,7 +115,6 @@ export async function start(options: StartOptions) {
     }
 
     messages.push({ role: "assistant", content: message });
-
     readline.write("\n");
   }
 }

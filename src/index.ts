@@ -31,8 +31,6 @@ function main() {
 }
 
 function pathIsValid(path: string): boolean {
-  // Check if the path exists and is valid
-  // Return true if it is, false otherwise
   return fs.existsSync(path);
 }
 
