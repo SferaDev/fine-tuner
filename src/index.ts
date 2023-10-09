@@ -9,8 +9,11 @@ function main() {
     if (!pathIsValid(path)) throw `Invalid path: ${path}`;
 
     await start({
-      projectPath: path,
-      apiToken: process.env.OPENAI_API_TOKEN!,
+      apiKey: process.env.OPENAI_API_TOKEN!,
+      onComplete: (messages) => {
+        const content = JSON.stringify(messages, null, 2);
+        fs.writeFileSync(`${path}/messages.json`, content);
+      },
     });
   });
 

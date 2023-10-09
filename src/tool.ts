@@ -1,15 +1,17 @@
 import { OpenAIStream } from "ai";
 import OpenAI from "openai";
-import { ChatCompletionMessageParam } from "openai/resources/chat/index.mjs";
+import type { ChatCompletionCreateParamsBase } from "openai/resources/chat/completions.mjs";
+import type { ChatCompletionMessageParam } from "openai/resources/chat/index.mjs";
 import { createInterface } from "readline";
 
 type StartOptions = {
-  projectPath: string;
-  apiToken: string;
+  apiKey: string;
+  model?: ChatCompletionCreateParamsBase["model"];
+  onComplete: (messages: ChatCompletionMessageParam[]) => void;
 };
 
 export async function start(options: StartOptions) {
-  const openai = new OpenAI({ apiKey: options.apiToken });
+  const openai = new OpenAI({ apiKey: options.apiKey });
 
   const readline = createInterface({
     input: process.stdin,
@@ -24,25 +26,34 @@ export async function start(options: StartOptions) {
     });
   };
 
-  const model = "gpt-4";
   const messages: ChatCompletionMessageParam[] = [];
+
+  readline.on("SIGINT", () => {
+    options.onComplete(messages);
+    process.exit(0);
+  });
 
   while (true) {
     const content = await prompt("> ");
     messages.push({ role: "user", content });
 
     const response = await openai.chat.completions.create({
-      model,
+      model: options.model ?? "gpt-3.5-turbo",
       stream: true,
       messages,
     });
 
     const stream = OpenAIStream(response);
 
+    let message = "";
+
     for await (const value of stream) {
-      const message = new TextDecoder().decode(value);
-      readline.write(message);
+      const part = new TextDecoder().decode(value);
+      readline.write(part);
+      message += part;
     }
+
+    messages.push({ role: "assistant", content: message });
 
     readline.write("\n");
   }
